@@ -116,6 +116,10 @@ def save_aliases(aliases: dict[str, str], directory: Path | None = None) -> Path
 def load_credential(directory: Path | None = None) -> StoredCredential | None:
     env_token = os.environ.get("NOEMA_TOKEN")
     server = os.environ.get("NOEMA_SERVER") or DEFAULT_SERVER
+    if env_token:
+        # An explicit token is a new credential, not a replacement access token
+        # for the on-disk identity or its resume secret.
+        return StoredCredential(access_token=env_token, server=server)
     path = credential_path(directory)
     data: dict = {}
     if path.is_file():
@@ -128,7 +132,7 @@ def load_credential(directory: Path | None = None) -> StoredCredential | None:
         player_id=data.get("player_id"),
         controller_id=data.get("controller_id"),
         controller_type=data.get("controller_type") or "agent",
-        server=str(data.get("server") or server),
+        server=str(data.get("server") or DEFAULT_SERVER),
         world_id=data.get("world_id"),
         protocol=str(data.get("protocol") or "agent-protocol/v1"),
         resume_token=data.get("resume_token"),

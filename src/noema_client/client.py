@@ -10,7 +10,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from noema_client._version import __version__
 from noema_client.actions import validate_proposal
@@ -74,6 +74,25 @@ from noema_client.types import (
     TurnResult,
 )
 
+
+
+def _origin(url: str, *, websocket: bool = False) -> tuple[str, str, int]:
+    """Compare network origins, allowing only the HTTP/WS scheme pairing."""
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
+    if websocket:
+        scheme = {"wss": "https", "ws": "http"}.get(scheme, scheme)
+    if scheme not in {"http", "https"} or not parsed.hostname or parsed.username is not None or parsed.password is not None:
+        raise ValueError("invalid origin")
+    port = parsed.port
+    return scheme, parsed.hostname.lower(), port if port is not None else (443 if scheme == "https" else 80)
+
+
+def _same_origin(server: str, destination: str, *, websocket: bool = False) -> bool:
+    try:
+        return _origin(server) == _origin(destination, websocket=websocket)
+    except (ValueError, TypeError):
+        return False
 
 
 class PlayBoundsError(ValueError):
@@ -152,7 +171,11 @@ class NoemaClient:
         self.transport_pref = transport
         self.world_id = world_id or os.environ.get("NOEMA_WORLD_ID") or None
         cred = load_credential(self.config_home)
-        if not self.world_id and cred and cred.world_id:
+        if cred and os.environ.get("NOEMA_TOKEN"):
+            # Explicit environment credentials target the selected server. Never
+            # combine them with a disk credential's identity or resume token.
+            cred.server = self.server
+        if not self.world_id and cred and cred.world_id and _same_origin(self.server, cred.server):
             self.world_id = cred.world_id
         self.isolated = bool(isolated or is_isolated_world(self.world_id))
         self._admin_token = admin_token or os.environ.get("NOEMA_ADMIN_TOKEN") or None
@@ -302,6 +325,12 @@ class NoemaClient:
         save_credential(cred, self.config_home)
 
     def _bind_gateway(self, cred: StoredCredential) -> None:
+        if not _same_origin(self.server, cred.server):
+            raise NoemaAuthError(
+                "CREDENTIAL_ORIGIN_MISMATCH",
+                "stored credential origin differs from selected server; run noema connect --force to enroll afresh",
+                failure=FailureClass.AUTH_REQUIRED,
+            )
         command_path = "/v1/command"
         world_id = self.world_id
         admin_token = None
@@ -327,8 +356,15 @@ class NoemaClient:
         ws_ok = chosen in {"auto", "websocket"}
         advertised = "websocket" in (self.discovery.transports if self.discovery else ["websocket"])
         if ws_ok and (advertised or chosen == "websocket" or self._ws_connect is not None):
+            endpoint = urljoin(self.server + "/", self.discovery.websocket_uri if self.discovery else self.server)
+            if not _same_origin(self.server, endpoint, websocket=True):
+                raise NoemaProtocolError(
+                    "WS_ORIGIN_MISMATCH",
+                    "websocket destination origin differs from selected server",
+                    failure=FailureClass.PROTOCOL,
+                )
             ws = WebSocketGateway(
-                derive_ws_url(self.discovery.websocket_uri if self.discovery else self.server),
+                derive_ws_url(endpoint),
                 StaticTokenProvider(cred.access_token),
                 seal=self.seal,
                 resume_token=cred.resume_token,

@@ -6,7 +6,6 @@ Adapted from Zero-State-LLC/Noema src/noema/harness/transport.py.
 from __future__ import annotations
 
 import json
-import socket
 import time
 import urllib.error
 import urllib.request
@@ -49,17 +48,15 @@ class CommandTransport(Protocol):
     def close(self) -> None: ...
 
 
-def _ipv4_opener() -> urllib.request.OpenerDirector:
-    orig = socket.getaddrinfo
+class _RejectRedirects(urllib.request.HTTPRedirectHandler):
+    """Protocol requests must never forward credentials or bodies to another URL."""
 
-    def getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):  # noqa: A002
-        return orig(host, port, socket.AF_INET, type, proto, flags)
-
-    socket.getaddrinfo = getaddrinfo_ipv4  # type: ignore[assignment]
-    return urllib.request.build_opener()
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
-_OPENER = _ipv4_opener()
+# Preserve the standard resolver and its IPv4/IPv6 behavior process-wide.
+_OPENER = urllib.request.build_opener(_RejectRedirects())
 
 
 def default_http(
@@ -85,6 +82,18 @@ def default_http(
             raw = resp.read().decode()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
+        if 300 <= e.code < 400:
+            # Ignore redirect bodies and locations, which can contain secrets or
+            # claim success despite the protocol request never completing.
+            e.close()
+            return {
+                "ok": False,
+                "error": {
+                    "code": "HTTP_REDIRECT_REJECTED",
+                    "message": "Protocol HTTP redirects are not allowed",
+                },
+                "_http_status": e.code,
+            }
         raw = e.read().decode()
         try:
             payload = json.loads(raw)

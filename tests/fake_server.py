@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 class FakeNoema:
     def __init__(self) -> None:
+        self.origin = "http://fixture"
         self.pending: dict[str, dict[str, Any]] = {}
         self.approved: dict[str, dict[str, Any]] = {}
         self.tokens: dict[str, dict[str, Any]] = {}
@@ -64,10 +65,10 @@ class FakeNoema:
         if method == "GET" and path == "/.well-known/noema-agent.json":
             return 200, {
                 "protocol": "agent-protocol/v1",
-                "origin": "http://fixture",
-                "verification_uri": "http://fixture/connect",
-                "command_uri": "http://fixture/v1/command",
-                "websocket_uri": "ws://fixture/protocol/v1/ws",
+                "origin": self.origin,
+                "verification_uri": f"{self.origin}/connect",
+                "command_uri": f"{self.origin}/v1/command",
+                "websocket_uri": f"ws://{urlparse(self.origin).netloc}/protocol/v1/ws",
                 "seal_required": self.seal_required,
                 "accepted_seals": list(self.accepted_seals),
                 "transports": ["http", "websocket"],
@@ -215,6 +216,8 @@ class _Handler(BaseHTTPRequestHandler):
 def serve_fake(fake: FakeNoema) -> tuple[str, ThreadingHTTPServer, threading.Thread]:
     _Handler.fake = fake
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    host, port = httpd.server_address[:2]
+    fake.origin = f"http://{host}:{port}"
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[:2]

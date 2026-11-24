@@ -7,6 +7,7 @@ discovery against a NOEMA server (/version and /ready).
 
 from __future__ import annotations
 
+import datetime
 import json
 import urllib.error
 import urllib.parse
@@ -38,6 +39,28 @@ def probe_server(origin: str = "https://noema.guru") -> dict[str, Any]:
         "worker_version_id": version.get("worker_version_id"),
         "world_id": version.get("world_id"),
         "ready": ready.get("ready", ready.get("ok")),
+    }
+
+
+def emit_psr1_enrollment_receipt(
+    *,
+    operator_org: str,
+    origin: str = "https://noema.guru",
+    first_observe_ok: bool = True,
+) -> dict[str, Any]:
+    probe = probe_server(origin)
+    return {
+        "receipt_type": "psr1_tier3_enrollment",
+        "recorded_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "operator_tier": 3,
+        "operator_org": operator_org,
+        "server_origin": origin,
+        "worker_version_id": probe["worker_version_id"],
+        "world_id": probe["world_id"],
+        "client_package": "noema-client==0.1.24",
+        "enrollment_route": "device-code:/connect",
+        "integration_style": "custom-http-ws",
+        "first_observe_ok": first_observe_ok,
     }
 
 

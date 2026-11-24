@@ -5,7 +5,11 @@ import urllib.error
 
 import pytest
 
-from examples.custom_http_ws_reference import fetch_json_no_redirect, probe_server
+from examples.custom_http_ws_reference import (
+    emit_psr1_enrollment_receipt,
+    fetch_json_no_redirect,
+    probe_server,
+)
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -45,6 +49,14 @@ def test_probe_server_and_refuse_redirect() -> None:
         assert res["worker_version_id"] == "test-ver"
         assert res["world_id"] == "world.test"
         assert res["ready"] is True
+
+        receipt = emit_psr1_enrollment_receipt(operator_org="external-lab", origin=origin)
+        assert receipt["receipt_type"] == "psr1_tier3_enrollment"
+        assert receipt["operator_tier"] == 3
+        assert receipt["client_package"] == "noema-client==0.1.24"
+        assert receipt["enrollment_route"] == "device-code:/connect"
+        assert receipt["integration_style"] == "custom-http-ws"
+        assert receipt["worker_version_id"] == "test-ver"
 
         with pytest.raises(urllib.error.HTTPError):
             fetch_json_no_redirect(origin, "/redirect")

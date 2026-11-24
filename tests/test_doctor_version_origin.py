@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from noema_client.client import NoemaClient
-from noema_client.config import Credential
+from noema_client.config import StoredCredential
 
 
 def test_doctor_reports_worker_version_and_origin_match(tmp_path: Path) -> None:
@@ -20,7 +20,7 @@ def test_doctor_reports_worker_version_and_origin_match(tmp_path: Path) -> None:
         config_home=tmp_path,
         http=fake_http,
     )
-    client._credential = Credential(
+    client._credential = StoredCredential(
         access_token="tok-1",
         server="https://noema.guru",
         player_id="player-1",
@@ -44,7 +44,7 @@ def test_doctor_flags_credential_origin_mismatch(tmp_path: Path) -> None:
         config_home=tmp_path,
         http=fake_http,
     )
-    client._credential = Credential(
+    client._credential = StoredCredential(
         access_token="tok-1",
         server="https://evil.example",
         player_id="player-1",

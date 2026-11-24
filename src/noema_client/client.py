@@ -641,17 +641,29 @@ class NoemaClient:
 
     def doctor(self) -> dict[str, Any]:
         cred = self._credential or load_credential(self.config_home)
+        origin_ok = True if (cred is None or not cred.server) else _same_origin(cred.server, self.server)
         report: dict[str, Any] = {
             "config_dir": str(self.config_home),
             "config_dir_mode": _mode(self.config_home),
             "credential": credential_state(cred.access_token if cred else None),
+            "credential_origin_ok": origin_ok,
             "server": self.server,
         }
+        if not origin_ok and cred is not None:
+            report["credential_server"] = cred.server
         try:
             health = self._http("GET", f"{self.server}/health", None, None)
             report["reachability"] = "ok" if int(health.get("_http_status") or 200) < 400 else "fail"
         except Exception as exc:
             report["reachability"] = f"fail:{type(exc).__name__}"
+        try:
+            ver = self._http("GET", f"{self.server}/version", None, None)
+            if int(ver.get("_http_status") or 200) < 400:
+                report["worker_version"] = ver.get("worker_version_id") or ver.get("version") or "unknown"
+            else:
+                report["worker_version"] = "unavailable"
+        except Exception as exc:
+            report["worker_version"] = f"unavailable:{type(exc).__name__}"
         try:
             disc = self.discover()
             report["discovery"] = disc.protocol

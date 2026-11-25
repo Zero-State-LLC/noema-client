@@ -79,6 +79,7 @@ _COMMIT = {
     "ACCESS": "ACCESS_POLICY",
     "ACCESS_POLICY": "ACCESS_POLICY",
     "FOCUS": "FOCUS",
+    "SUPPLY": "SUPPLY",  # RFC-0133: resource-office holder hands treasury energy/cargo to a Player
     "ATTEST": "ATTEST",
     "RECONSTRUCT": "RECONSTRUCT",
     "RECONSTRUCT_PUBLISH": "RECONSTRUCT_PUBLISH",

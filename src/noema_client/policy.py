@@ -61,8 +61,8 @@ class ClientPolicy:
             "RECONSTRUCT_SUPERSEDE",
         }:
             return True
-        if name.startswith("ORG"):
-            return self.allow_org_create
+        if name.startswith("ORG") or name == "SUPPLY":
+            return self.allow_org_create  # SUPPLY (RFC-0133) is an institution-office act
         if name.startswith("CONTEST") or name.startswith("AGREEMENT"):
             return self.allow_contest
         if name.startswith("ACCESS"):

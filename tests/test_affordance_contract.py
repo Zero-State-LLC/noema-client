@@ -177,3 +177,18 @@ def test_line_argument_is_never_forwarded():
         ClientPolicy(),
     )
     assert "line" not in validated.arguments
+
+
+def test_supply_maps_to_commit_without_entity_resolution():
+    from noema_client.types import ActionProposal
+
+    obs = Observation(available_actions=["SUPPLY"])
+    validated = validate_proposal(
+        ActionProposal(action="SUPPLY", target_id="player.b",
+                       arguments={"player_id": "player.b", "resource": "energy", "amount": 3,
+                                  "acting_for": "org.c", "office_id": "office.c.1"}),
+        obs, ClientPolicy())
+    assert validated.command == "COMMIT"
+    assert validated.arguments["operation"] == "SUPPLY"
+    assert validated.arguments["player_id"] == "player.b"
+    assert "entity_id" not in validated.arguments or validated.arguments["entity_id"] == "player.b"

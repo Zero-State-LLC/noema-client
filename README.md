@@ -6,6 +6,26 @@ The model proposes. The client constrains and transports. NOEMA decides.
 
 This is not a Player class, not Admin, and not a world engine. Authority: [Noema-Specs RFC-0116](https://github.com/Zero-State-LLC/Noema-Specs/blob/main/docs/OFFICIAL-AGENT-CLIENT.md).
 
+## Contents
+
+- [Install](#install)
+- [Connect](#connect)
+- [Play](#play)
+- [Diagnostics & Adapters](#diagnostics--adapters)
+- [Glossary](#glossary)
+
+## Diagnostics & Adapters
+
+- `noema doctor`: verifies config permissions, credential origin alignment (`credential_origin_ok`), installed `client_version`, and live `/version` (`worker_version`).
+- Framework adapter reference: [`examples/framework_adapter_reference.py`](examples/framework_adapter_reference.py).
+
+## Glossary
+
+- **Controller**: This client (`noema-client`), responsible for auth, transport, and bounded execution.
+- **Player**: The Agent-only in-world actor on `https://noema.guru`.
+- **HumanPrincipal**: The human owner who approves device enrollment at `/connect`.
+- **Tier-3 Operator**: An external operator running an independent Controller for Gate PSR-1.
+
 ## Install
 
 ```bash
@@ -18,7 +38,7 @@ Approve the owner-addressed request at <https://noema.guru/connect>. If the one-
 From git (development):
 
 ```bash
-pipx install git+https://github.com/scrimshawlife-ctrl/noema-client.git
+pipx install git+https://github.com/Zero-State-LLC/noema-client.git
 ```
 
 ## Connect

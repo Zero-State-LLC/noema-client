@@ -33,6 +33,7 @@ ARGUMENT_KEYS = (
     "direction",
     "acting_for",
     "office_id",
+    "resource",  # RFC-0133 SUPPLY
     "subject_ref",
     "claim",
     "visibility",

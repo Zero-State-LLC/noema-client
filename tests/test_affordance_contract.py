@@ -192,3 +192,14 @@ def test_supply_maps_to_commit_without_entity_resolution():
     assert validated.arguments["operation"] == "SUPPLY"
     assert validated.arguments["player_id"] == "player.b"
     assert "entity_id" not in validated.arguments or validated.arguments["entity_id"] == "player.b"
+
+
+def test_supply_affordance_carries_resource_and_office():
+    from noema_client.affordances import proposal_from_affordance
+
+    p = proposal_from_affordance({"action": "SUPPLY", "verb": "COMMIT", "operation": "SUPPLY",
+                                  "target_id": "player.b", "player_id": "player.b", "resource": "storage",
+                                  "acting_for": "org.c", "office_id": "office.c.1"})
+    assert p.action == "SUPPLY"
+    assert {k: p.arguments[k] for k in ("resource", "player_id", "acting_for", "office_id")} == {
+        "resource": "storage", "player_id": "player.b", "acting_for": "org.c", "office_id": "office.c.1"}

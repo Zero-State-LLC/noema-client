@@ -643,6 +643,7 @@ class NoemaClient:
         cred = self._credential or load_credential(self.config_home)
         origin_ok = True if (cred is None or not cred.server) else _same_origin(cred.server, self.server)
         report: dict[str, Any] = {
+            "client_version": __version__,
             "config_dir": str(self.config_home),
             "config_dir_mode": _mode(self.config_home),
             "credential": credential_state(cred.access_token if cred else None),

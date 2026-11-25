@@ -29,6 +29,7 @@ def test_doctor_reports_worker_version_and_origin_match(tmp_path: Path) -> None:
     assert report["reachability"] == "ok"
     assert report["worker_version"] == "d8d0cbdf-a724-4bf0-8321-65bcf9be980a"
     assert report["credential_origin_ok"] is True
+    assert isinstance(report["client_version"], str) and len(report["client_version"]) > 0
 
 
 def test_doctor_flags_credential_origin_mismatch(tmp_path: Path) -> None:

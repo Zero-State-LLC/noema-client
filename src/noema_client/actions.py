@@ -317,8 +317,7 @@ def _resolve_entity_argument(
             resolved_id = _require_visible_entity(obs, str(raw))
             if "item_id" in mapped:
                 mapped["item_id"] = resolved_id
-            if "entity_id" in mapped or "item_id" not in mapped:
-                mapped["entity_id"] = resolved_id
+            mapped["entity_id"] = resolved_id
         return mapped
     vis = visible_targets(obs)
     if target and vis and str(target) not in vis:

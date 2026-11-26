@@ -65,12 +65,19 @@
       "sample": "move east",
       "command": "MOVE",
       "direction": "east"
+    },
+    {
+      "template": "recharge ${e.label}",
+      "sample": "recharge relay-7",
+      "command": "RECHARGE",
+      "entity_id": "entity.relay-7"
     }
   ],
   "structured_only": [
     "accept ${t.trade_id}",
     "access ${where} ${modeCmd} for ${org.org_id}${appliesCmd}",
     "attest ${art.label} subject=${sub.entity_id} claim=${claim}",
+    "build ${classId} for ${org.org_id}",
     "cancel ${t.trade_id}",
     "connect ${e.label} to ${dest}",
     "consent ${office.office_id} ${handle}",
@@ -97,6 +104,7 @@
     "share ${e.label} with ${handle}",
     "succession ${office.office_id} ${handle}",
     "succession rule ${office.office_id} member_order",
+    "supply ${p.player_id} ${res}",
     "terminate agreement ${agr.agreement_id} reason=mutual",
     "trade ${handle} offer=energy:1 want=energy:1",
     "vest ${e.label} to ${org.org_id}",

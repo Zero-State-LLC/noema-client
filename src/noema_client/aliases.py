@@ -71,6 +71,7 @@ _VERBS: dict[str, tuple[str, str | None]] = {
     "upgrade": ("UPGRADE", "entity_id"),
     "repurpose": ("REPURPOSE", "entity_id"),
     "restore": ("RESTORE", "entity_id"),
+    "recharge": ("RECHARGE", "entity_id"),
     "trade": ("TRADE", None),
     "message": ("MESSAGE", None),
     "msg": ("MESSAGE", None),

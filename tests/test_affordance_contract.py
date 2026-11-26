@@ -70,7 +70,7 @@ def test_structured_only_commands_are_declared_not_forgotten():
     parsed = {c["template"] for c in FIXTURE["parsed"]}
     structured = set(FIXTURE["structured_only"])
     assert not (parsed & structured), "a template cannot be both parsed and structured-only"
-    assert len(parsed) + len(structured) == 45
+    assert len(parsed) + len(structured) == 57
 
 
 def test_the_exact_live_failure_now_validates():

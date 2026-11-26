@@ -70,6 +70,12 @@ class Observation:
     historical_context: dict[str, Any] | None = None
     path_dependence_index: float | None = None
     lore_attractors: list[Any] = field(default_factory=list)
+    inventory: list[Any] = field(default_factory=list)
+    equipment: dict[str, Any] = field(default_factory=dict)
+    material_lots: list[Any] = field(default_factory=list)
+    shop_listings: list[Any] = field(default_factory=list)
+    open_contracts: list[Any] = field(default_factory=list)
+    unlocked_affordances: list[Any] = field(default_factory=list)
 
     def __str__(self) -> str:
         loc = (self.location or {}).get("name") or "?"

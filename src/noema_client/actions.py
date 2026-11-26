@@ -23,11 +23,26 @@ _DIRECT = {
     "INSPECT": ("INSPECT", False),
     "MESSAGE": ("MESSAGE", True),
     "TRADE": ("TRADE", True),
+    "RECHARGE": ("RECHARGE", True),
 }
 
-# Operations whose target names a visible world entity. Everything else in
-# _COMMIT targets an office, player, org or agreement, and must not be run
-# through the entity resolver.
+_TRADE_PHASES = frozenset(
+    {
+        "propose",
+        "accept",
+        "reject",
+        "cancel",
+        "stock",
+        "withdraw",
+        "list",
+        "unlist",
+        "fulfill",
+    }
+)
+
+# Operations whose target names a visible world entity or carried item.
+# Everything else in _COMMIT targets an office, player, org, contract, or
+# agreement, and must not be run through the entity resolver.
 _ENTITY_TARGET_OPS = {
     "HARVEST",
     "REPAIR",
@@ -38,12 +53,19 @@ _ENTITY_TARGET_OPS = {
     "VEST",
     "SHARE",
     "CONNECT",
+    "BUILD_CONTRIBUTE",
     "RECONSTRUCT",
     "ATTEST",
+    "EQUIP",
+    "UNEQUIP",
+    "USE_ITEM",
+    "SCRAP_ITEM",
+    "ASSIGN_STEWARD",
 }
 
 _BUILD = {
     "CONSTRUCT",
+    "BUILD_CONTRIBUTE",
     "DISMANTLE",
     "UPGRADE",
     "REPURPOSE",
@@ -57,6 +79,7 @@ _COMMIT = {
     "REPAIR": "REPAIR",
     "HARVEST": "HARVEST",
     "ORG_CREATE": "ORG_CREATE",
+    "ORG_JOIN": "ORG_JOIN",
     "ORG_MEMBER_ADD": "ORG_MEMBER_ADD",
     "ORG_MEMBER_REMOVE": "ORG_MEMBER_REMOVE",
     "ORG_OFFICE_CREATE": "ORG_OFFICE_CREATE",
@@ -84,7 +107,48 @@ _COMMIT = {
     "RECONSTRUCT": "RECONSTRUCT",
     "RECONSTRUCT_PUBLISH": "RECONSTRUCT_PUBLISH",
     "RECONSTRUCT_SUPERSEDE": "RECONSTRUCT_SUPERSEDE",
+    "COMMEMORATE": "COMMEMORATE",
+    "REMEDIATE": "REMEDIATE",
+    "CONTRACT_POST": "CONTRACT_POST",
+    "CONTRACT_FULFILL": "CONTRACT_FULFILL",
+    "CRAFT": "CRAFT",
+    "REFINE": "REFINE",
+    "EQUIP": "EQUIP",
+    "UNEQUIP": "UNEQUIP",
+    "USE_ITEM": "USE_ITEM",
+    "SCRAP_ITEM": "SCRAP_ITEM",
+    "CONVERT": "CONVERT",
+    "INVESTIGATE": "INVESTIGATE",
+    "SANCTION": "SANCTION",
+    "ASSIGN_STEWARD": "ASSIGN_STEWARD",
 }
+
+
+def _carried_items(obs: Observation) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for entry in obs.inventory or []:
+        if isinstance(entry, dict):
+            items.append(entry)
+    eq = obs.equipment or {}
+    if isinstance(eq, dict):
+        for val in eq.values():
+            if isinstance(val, dict):
+                items.append(val)
+            elif isinstance(val, str) and val:
+                items.append({"item_id": val})
+    raw = obs.raw or {}
+    if isinstance(raw, dict):
+        for entry in raw.get("inventory") or []:
+            if isinstance(entry, dict):
+                items.append(entry)
+        raw_eq = raw.get("equipment")
+        if isinstance(raw_eq, dict):
+            for val in raw_eq.values():
+                if isinstance(val, dict):
+                    items.append(val)
+                elif isinstance(val, str) and val:
+                    items.append({"item_id": val})
+    return items
 
 
 def visible_targets(obs: Observation) -> set[str]:
@@ -92,6 +156,10 @@ def visible_targets(obs: Observation) -> set[str]:
     for ent in obs.entities:
         if isinstance(ent, dict) and ent.get("entity_id"):
             found.add(str(ent["entity_id"]))
+    for item in _carried_items(obs):
+        iid = item.get("entity_id") or item.get("item_id")
+        if iid:
+            found.add(str(iid))
     loc = obs.location or {}
     for exit_ in loc.get("exits") or []:
         if isinstance(exit_, dict):
@@ -125,10 +193,11 @@ class TargetResolution:
 
 
 def _visible_entity_index(obs: Observation) -> tuple[set[str], dict[str, set[str]]]:
-    """Visible entity ids, and normalized label -> set of entity ids.
+    """Visible entity/carried-item ids, and normalized label -> set of ids.
 
     Only the current observation is consulted: its entities, its location
-    entities, and its affordances. Nothing else can become a target.
+    entities, its carried inventory/equipment, and its affordances. Nothing
+    else can become a target.
     """
     ids: set[str] = set()
     by_label: dict[str, set[str]] = {}
@@ -146,17 +215,27 @@ def _visible_entity_index(obs: Observation) -> tuple[set[str], dict[str, set[str
     for ent in list(obs.entities or []) + list((obs.location or {}).get("entities") or []):
         if isinstance(ent, dict):
             note(ent.get("entity_id"), ent.get("label"), ent.get("target_label"))
+    for item in _carried_items(obs):
+        note(
+            item.get("entity_id") or item.get("item_id"),
+            item.get("label"),
+            item.get("name"),
+            item.get("archetype_id"),
+            item.get("item_class"),
+        )
     for aff in obs.affordances or []:
         raw = aff.raw or {}
         note(aff.target_id, raw.get("target_label"), raw.get("label"))
+        if raw.get("item_id"):
+            note(raw.get("item_id"), raw.get("target_label"), raw.get("label"), raw.get("archetype_id"))
     return ids, by_label
 
 
 def resolve_visible_entity(obs: Observation, raw: str) -> TargetResolution:
     """Canonical, ambiguity-aware target resolver for entity-targeted actions.
 
-    Exact entity id wins. A unique exact label resolves. An ambiguous label is
-    an explicit error rather than a silent pick, and anything not visible in
+    Exact entity/item id wins. A unique exact label resolves. An ambiguous label
+    is an explicit error rather than a silent pick, and anything not visible in
     this observation stays rejected.
     """
     needle = str(raw or "").strip()
@@ -175,8 +254,8 @@ def resolve_visible_entity(obs: Observation, raw: str) -> TargetResolution:
             message=f"{needle!r} matches more than one visible target",
             choices=tuple(sorted(matches)),
         )
-    if needle.startswith("entity.") and not ids:
-        # No entity view in this observation at all; leave the id for the server.
+    if needle.startswith(("entity.", "item.")) and not ids:
+        # No entity/item view in this observation at all; leave the id for the server.
         return TargetResolution(True, entity_id=needle)
     return TargetResolution(False, code="INVALID_PROPOSAL", message="target not visible")
 
@@ -226,16 +305,19 @@ def advertised(obs: Observation, action: str, operation: str | None = None) -> b
 def _resolve_entity_argument(
     obs: Observation, mapped: dict[str, Any], target: str | None
 ) -> dict[str, Any]:
-    """Resolve an entity-targeted operation's target to a canonical entity id.
+    """Resolve an entity/item-targeted operation's target to a canonical id.
 
     Non-entity operations keep the previous visible-target check so office,
-    player and agreement targets behave exactly as before.
+    player, contract, and agreement targets behave exactly as before.
     """
     op = str(mapped.get("operation") or "").upper()
     if op in _ENTITY_TARGET_OPS:
-        raw = mapped.get("entity_id") or target
+        raw = mapped.get("entity_id") or mapped.get("item_id") or target
         if raw:
-            mapped["entity_id"] = _require_visible_entity(obs, str(raw))
+            resolved_id = _require_visible_entity(obs, str(raw))
+            if "item_id" in mapped:
+                mapped["item_id"] = resolved_id
+            mapped["entity_id"] = resolved_id
         return mapped
     vis = visible_targets(obs)
     if target and vis and str(target) not in vis:
@@ -250,7 +332,8 @@ def validate_proposal(proposal: ActionProposal, obs: Observation, policy: Client
     args = dict(proposal.arguments or {})
     args.pop("line", None)
     operation = str(args.get("operation") or "").upper()
-    if not policy.permits(action) and not (operation and policy.permits(operation)):
+    phase = str(args.get("phase") or "").strip().lower() or None
+    if not policy.permits(action, phase=phase) and not (operation and policy.permits(operation, phase=phase)):
         raise NoemaActionRejected("POLICY_DENIED", f"{action} gated by client policy", failure=FailureClass.INVALID_PROPOSAL)
     if not advertised(obs, action, operation or None):
         raise NoemaActionRejected("INVALID_PROPOSAL", f"{action} is not advertised", failure=FailureClass.INVALID_PROPOSAL)
@@ -270,6 +353,22 @@ def validate_proposal(proposal: ActionProposal, obs: Observation, policy: Client
             entity_id = args.get("entity_id") or target
             if entity_id:
                 args = {**args, "entity_id": _require_visible_entity(obs, str(entity_id))}
+        elif action == "RECHARGE":
+            entity_id = args.get("entity_id") or args.get("item_id") or target
+            if entity_id:
+                resolved_id = _require_visible_entity(obs, str(entity_id))
+                args = {**args, "entity_id": resolved_id}
+                if "item_id" in args:
+                    args["item_id"] = resolved_id
+        elif action == "TRADE":
+            if phase is not None:
+                if phase not in _TRADE_PHASES:
+                    raise NoemaActionRejected(
+                        "INVALID_PROPOSAL",
+                        f"unknown trade phase {phase!r}",
+                        failure=FailureClass.INVALID_PROPOSAL,
+                    )
+                args = {**args, "phase": phase}
         elif action == "MESSAGE":
             recipient = args.get("recipient_id") or args.get("handle") or target
             text = args.get("text") or (args.get("message") if isinstance(args.get("message"), str) else None)
@@ -290,7 +389,7 @@ def validate_proposal(proposal: ActionProposal, obs: Observation, policy: Client
         if not op:
             raise NoemaActionRejected("INVALID_PROPOSAL", f"unknown action {action}", failure=FailureClass.INVALID_PROPOSAL)
         mapped = {**args, "operation": op}
-        if target and "entity_id" not in mapped:
+        if target and "entity_id" not in mapped and "item_id" not in mapped:
             mapped["entity_id"] = target
         mapped = _resolve_entity_argument(obs, mapped, target)
         return ValidatedAction(command="COMMIT", arguments=mapped, mutating=True)

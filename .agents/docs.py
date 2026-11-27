@@ -367,6 +367,8 @@ def lifecycle_violations(lc: dict[str, Any], since: str | None = None) -> list[d
             ref = f"{kid}:{fname}"
             if raw is None and fname in index:  # the index alone may carry the status (e.g. RFC-0001)
                 raw = index[fname]
+            if raw is None and kind.get("default"):  # format says a bare record is in this state
+                raw = kind["default"]
             state = normalize(raw, kind)
             if raw is None:
                 out.append({"key": f"{ref}:no_status", "detail": "no status in the file or its index"})
@@ -431,7 +433,7 @@ def report(lc: dict[str, Any]) -> str:
         counts: dict[str, int] = {}
         index = index_rows(kind)
         for fname, path in documents(kind).items():
-            raw = status_text(path.read_text(encoding="utf-8"), kind["status"]) or index.get(fname)
+            raw = status_text(path.read_text(encoding="utf-8"), kind["status"]) or index.get(fname) or kind.get("default")
             st = normalize(raw, kind) or "(unrecognized)"
             counts[st] = counts.get(st, 0) + 1
         order = kind["states"] + ["(unrecognized)"]

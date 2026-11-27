@@ -1,0 +1,98 @@
+{
+  "format": "noema-procedures/1",
+  "_note": "Source of truth for generated Markdown blocks and for the play machine. skills/noema/SKILL.md is shipped to players' agents and stays hand-written; `docs.py check` keeps it aligned with `play` (mirrors).",
+  "blocks": [
+    {
+      "file": "docs/agents/triage-labels.md",
+      "name": "triage",
+      "render": "triage"
+    }
+  ],
+  "triage": {
+    "states": {
+      "needs-triage": {
+        "role": "needs-triage",
+        "meaning": "Maintainer needs to evaluate this issue",
+        "next": [
+          {
+            "to": "needs-info",
+            "when": "the reporter must add information"
+          },
+          {
+            "to": "ready-for-agent",
+            "when": "it is fully specified for an AFK agent"
+          },
+          {
+            "to": "ready-for-human",
+            "when": "it needs human implementation"
+          },
+          {
+            "to": "wontfix",
+            "when": "it will not be actioned"
+          }
+        ]
+      },
+      "needs-info": {
+        "role": "needs-info",
+        "meaning": "Waiting on reporter for more information",
+        "next": [
+          {
+            "to": "needs-triage",
+            "when": "the reporter replies"
+          }
+        ]
+      },
+      "ready-for-agent": {
+        "role": "ready-for-agent",
+        "meaning": "Fully specified, ready for an AFK agent",
+        "terminal": "the issue closes when the work is done."
+      },
+      "ready-for-human": {
+        "role": "ready-for-human",
+        "meaning": "Requires human implementation",
+        "terminal": "the issue closes when the work is done."
+      },
+      "wontfix": {
+        "role": "wontfix",
+        "meaning": "Will not be actioned",
+        "terminal": "the issue closes."
+      }
+    }
+  },
+  "play": {
+    "_note": "The Controller play loop: CONNECTING -> PLAYING in .agents/machine.json; inside PLAYING the agent repeats `loop`, and any `stop_signals` moves it to STOPPED.",
+    "loop": [
+      "Observe first.",
+      "Choose one advertised affordance.",
+      "Use canonical target IDs only.",
+      "Submit one structured action.",
+      "Re-observe after a mutation.",
+      "Do not invent verbs."
+    ],
+    "stop_signals": [
+      "INCIDENT",
+      "NOT_AUTHORIZED",
+      "SEAL_REQUIRED",
+      "SEAL_MISMATCH",
+      "protocol mismatch",
+      "repeated rejection"
+    ]
+  },
+  "mirrors": [
+    {
+      "file": "skills/noema/SKILL.md",
+      "section": "## Observe / act",
+      "steps": "play.loop"
+    },
+    {
+      "file": "skills/noema/SKILL.md",
+      "section": "## Stop",
+      "mentions": "play.stop_signals"
+    },
+    {
+      "file": "AGENTS.md",
+      "section": null,
+      "mentions": "play.stop_signals"
+    }
+  ]
+}

@@ -41,6 +41,7 @@ Agent work is a state machine (`.agents/machine.json`): `python3 .agents/machine
 - **Any state → ESCALATED** when CI, tests or the request itself look wrong: Escalate (do not invent a workaround) when the request would require: Admin-as-Player, human inhabit, or coercing a human JWT to `controller_type=agent`; Genesis, reseed, Recover, or rewriting canonical history; changing world verbs, admission, or seal authority in this client; automating `/connect` or collecting owner/Admin credentials; a conflict between this client and Noema-Specs / Noema. Report client / CLI / skill defects in this repository; server, Worker or world runtime in Zero-State-LLC/Noema; protocol, ontology or admission in Zero-State-LLC/Noema-Specs. Then: back when reported; work can continue · ORIENT when task dropped.
 - **Any state → AWAITING_USER** before a step that needs the user: Give one summary and ask once; wait for the user's own words. Then: back when the user says no or redirects.
 - No standing grant in this repo (unlike Noema and Noema-Specs).
+- Triage labels and the play loop are machines too: `python3 .agents/docs.py`. `skills/noema/SKILL.md` stays hand-written; `check` keeps its loop and stop signals aligned with `.agents/procedures.json`.
 
 <!-- agent-machine:end -->
 

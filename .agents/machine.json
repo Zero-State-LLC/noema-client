@@ -1,0 +1,402 @@
+{
+  "format": "noema-agent-machine/1",
+  "meta": {
+    "repo": "Zero-State-LLC/noema-client",
+    "core_digest": "sha256:0cd970aa253383ced82909d902a974f4a0cc7f9b54a0e07dd2f9cbadcdd05d35"
+  },
+  "core": {
+    "initial": "ORIENT",
+    "states": {
+      "ORIENT": {
+        "summary": "Read the task, this file and the docs it touches; check `git status`.",
+        "allow": [
+          "read",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "INTENT",
+            "when": "non-trivial product change, RFC or feature",
+            "guard": {
+              "kind": "attest",
+              "prompt": "why it is non-trivial"
+            }
+          },
+          {
+            "to": "IMPLEMENT",
+            "when": "clarification, adapter or docs-only hygiene; no contract change",
+            "guard": {
+              "kind": "attest",
+              "prompt": "why no intent is needed"
+            }
+          }
+        ]
+      },
+      "INTENT": {
+        "summary": "Record the intent before any spec.",
+        "allow": [
+          "read",
+          "branch",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "SPEC",
+            "when": "intent recorded",
+            "guard": {
+              "kind": "attest",
+              "prompt": "path or link to the intent"
+            }
+          }
+        ]
+      },
+      "SPEC": {
+        "summary": "Write the spec.",
+        "allow": [
+          "read",
+          "branch",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "PLAN",
+            "when": "spec written",
+            "guard": {
+              "kind": "attest",
+              "prompt": "path or link to the spec"
+            }
+          }
+        ]
+      },
+      "PLAN": {
+        "summary": "Plan the change.",
+        "allow": [
+          "read",
+          "branch",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "IMPLEMENT",
+            "when": "plan ready",
+            "guard": {
+              "kind": "attest",
+              "prompt": "path or link to the plan"
+            }
+          }
+        ]
+      },
+      "IMPLEMENT": {
+        "summary": "Make the change on a branch.",
+        "allow": [
+          "read",
+          "branch",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "VERIFY",
+            "when": "change ready to check"
+          }
+        ]
+      },
+      "VERIFY": {
+        "summary": "Run the repo's checks.",
+        "allow": [
+          "read",
+          "branch"
+        ],
+        "exits": [
+          {
+            "to": "REVIEW",
+            "when": "checks pass",
+            "guard": {
+              "kind": "run",
+              "commands": "@verify"
+            }
+          },
+          {
+            "to": "IMPLEMENT",
+            "when": "checks fail"
+          }
+        ]
+      },
+      "REVIEW": {
+        "summary": "Pull request open; fix CI on it.",
+        "allow": [
+          "read",
+          "branch",
+          "pr",
+          "docs_board",
+          "merge"
+        ],
+        "exits": [
+          {
+            "to": "MERGED",
+            "when": "merged",
+            "guard": {
+              "kind": "attest",
+              "prompt": "PR link and who merged"
+            }
+          },
+          {
+            "to": "IMPLEMENT",
+            "when": "changes requested or CI red"
+          }
+        ]
+      },
+      "MERGED": {
+        "summary": "Merged.",
+        "allow": [
+          "read",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "ORIENT",
+            "when": "next task"
+          }
+        ]
+      },
+      "ESCALATED": {
+        "summary": "Something looks wrong; report it instead of working around it.",
+        "allow": [
+          "read",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "@resume",
+            "when": "reported; work can continue",
+            "guard": {
+              "kind": "attest",
+              "prompt": "defect or report link"
+            }
+          },
+          {
+            "to": "ORIENT",
+            "when": "task dropped",
+            "guard": {
+              "kind": "attest",
+              "prompt": "why"
+            }
+          }
+        ]
+      },
+      "AWAITING_USER": {
+        "summary": "Give one summary and ask once; wait for the user's own words.",
+        "allow": [
+          "read"
+        ],
+        "exits": [
+          {
+            "to": "APPROVED",
+            "when": "the user says yes",
+            "guard": {
+              "kind": "user_yes",
+              "prompt": "quote the user's yes"
+            }
+          },
+          {
+            "to": "@resume",
+            "when": "the user says no or redirects",
+            "guard": {
+              "kind": "user_yes",
+              "prompt": "quote the user's reply"
+            }
+          }
+        ]
+      },
+      "APPROVED": {
+        "summary": "Do the one approved step, then record it.",
+        "allow": [
+          "read",
+          "branch",
+          "pr",
+          "docs_board"
+        ],
+        "exits": [
+          {
+            "to": "@resume",
+            "when": "done and recorded",
+            "guard": {
+              "kind": "attest",
+              "prompt": "what was done and where it is recorded"
+            }
+          }
+        ]
+      },
+      "STOPPED": {
+        "summary": "Stop autonomous work.",
+        "allow": [
+          "read"
+        ],
+        "no_global_exits": true,
+        "exits": [
+          {
+            "to": "ORIENT",
+            "when": "the user clears the stop",
+            "guard": {
+              "kind": "user_yes",
+              "prompt": "quote the user clearing it"
+            }
+          }
+        ]
+      }
+    },
+    "global_exits": [
+      {
+        "to": "STOPPED",
+        "when": "on a stop signal",
+        "guard": {
+          "kind": "attest",
+          "prompt": "which signal"
+        }
+      },
+      {
+        "to": "ESCALATED",
+        "when": "when CI, tests or the request itself look wrong",
+        "guard": {
+          "kind": "attest",
+          "prompt": "what looks wrong"
+        }
+      },
+      {
+        "to": "AWAITING_USER",
+        "when": "before a step that needs the user",
+        "guard": {
+          "kind": "attest",
+          "prompt": "what you asked"
+        }
+      }
+    ],
+    "actions": {
+      "read": {
+        "tier": "unstated",
+        "text": "Read the repo; run tests, linters, builds and type checks."
+      },
+      "branch": {
+        "tier": "unstated",
+        "text": "Create branches, commit and push branches."
+      },
+      "pr": {
+        "tier": "unstated",
+        "text": "Open, update and close your own pull requests."
+      },
+      "merge": {
+        "tier": "unstated",
+        "text": "Merge a pull request."
+      },
+      "docs_board": {
+        "tier": "unstated",
+        "text": "Update docs and the issue board."
+      }
+    }
+  },
+  "repo": {
+    "order": [
+      "ORIENT",
+      "CONNECTING",
+      "PLAYING",
+      "INTENT",
+      "SPEC",
+      "PLAN",
+      "IMPLEMENT",
+      "VERIFY",
+      "REVIEW",
+      "MERGED",
+      "APPROVED"
+    ],
+    "verify": [
+      "python -m pytest -q",
+      "python3 .agents/machine.py check"
+    ],
+    "notes": [
+      "No standing grant in this repo (unlike Noema and Noema-Specs)."
+    ],
+    "states": {
+      "ORIENT": {
+        "exits_extra": [
+          {
+            "to": "CONNECTING",
+            "when": "the task is to connect or play as a Controller",
+            "guard": {
+              "kind": "attest",
+              "prompt": "which owner and world"
+            }
+          }
+        ]
+      },
+      "INTENT": {
+        "do_extra": [
+          "Product-level intents for Noema live in Zero-State-LLC/Noema-Specs [`intent/`](https://github.com/Zero-State-LLC/Noema-Specs/tree/main/intent). Do not author product intent here.",
+          "Client-only intents (Controller CLI, skill, local policy, packaging) MAY use a local `intent/` with the same template: Problem, outcome, users, constraints, open questions.",
+          "A local intent must not redefine world semantics, admission, or Admin-as-Player."
+        ]
+      },
+      "CONNECTING": {
+        "summary": "Install and connect.",
+        "do": [
+          "`pipx install noema-client`, then `noema connect --email owner@example.com`.",
+          "Show the human the printed approval URL and short code. Do not automate the browser. Do not ask for passwords, owner sessions, Admin tokens, or cookies.",
+          "`--email` is an owner hint only; human approval at <https://noema.guru/connect> remains the boundary.",
+          "Default success stores `~/.config/noema/credential.json` (`0600`), submits `ENTER_WORLD`, and observes. Use `--no-enter` to store the credential without entering."
+        ],
+        "allow": [
+          "read",
+          "connect"
+        ],
+        "exits": [
+          {
+            "to": "PLAYING",
+            "when": "the human approved and the credential is stored",
+            "guard": {
+              "kind": "attest",
+              "prompt": "what `noema connect` printed on success"
+            }
+          }
+        ]
+      },
+      "PLAYING": {
+        "summary": "Observe and play.",
+        "do": [
+          "`noema observe`, then `noema play --max-actions 8`.",
+          "Teach the agent to run `noema` (or `NoemaClient`). Raw curl is troubleshooting only.",
+          "`noema disconnect` ends the local session; it does not delete the Player."
+        ],
+        "allow": [
+          "read",
+          "play"
+        ],
+        "exits": [
+          {
+            "to": "ORIENT",
+            "when": "done; `noema disconnect`"
+          }
+        ]
+      },
+      "STOPPED": {
+        "do_extra": [
+          "Stop autonomous play on `INCIDENT`, `NOT_AUTHORIZED`, `SEAL_REQUIRED` / `SEAL_MISMATCH`, protocol mismatch, denied/cancelled/expired approval, or repeated rejection.",
+          "If implementation appears to need Genesis, reseed, history rewrite, or Admin-as-Player, stop and report `GOVERNANCE_ESCALATION_REQUIRED`."
+        ]
+      },
+      "ESCALATED": {
+        "do_extra": [
+          "Escalate (do not invent a workaround) when the request would require: Admin-as-Player, human inhabit, or coercing a human JWT to `controller_type=agent`; Genesis, reseed, Recover, or rewriting canonical history; changing world verbs, admission, or seal authority in this client; automating `/connect` or collecting owner/Admin credentials; a conflict between this client and Noema-Specs / Noema.",
+          "Report client / CLI / skill defects in this repository; server, Worker or world runtime in Zero-State-LLC/Noema; protocol, ontology or admission in Zero-State-LLC/Noema-Specs."
+        ]
+      }
+    },
+    "actions": {
+      "connect": {
+        "tier": "documented",
+        "text": "`noema connect`; a human approves at /connect."
+      },
+      "play": {
+        "tier": "documented",
+        "text": "`noema observe` and `noema play` as documented here."
+      }
+    }
+  }
+}

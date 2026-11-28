@@ -282,14 +282,21 @@ class WebSocketGateway:
                 raw=payload,
             )
         observation = body.get("observation") if isinstance(body.get("observation"), dict) else None
-        ok = True if observation is not None else bool(body.get("ok", True))
+        body_error = body.get("error") if isinstance(body.get("error"), dict) else None
+        # The Worker answers a rejected action with HTTP 200 and the CommandResult body, so an
+        # ACT_RESULT can say ok=false and still carry an observation (failedAction attaches one).
+        # The body's verdict wins; an observation alone is not acceptance.
+        if "ok" in body:
+            ok = bool(body.get("ok"))  # same verdict as the HTTP transport (transport.py)
+        else:
+            ok = body_error is None
         return CommandResult(
             ok=ok,
             observation=observation,
-            error=body.get("error") if isinstance(body.get("error"), dict) else None,
+            error=body_error,
             settled=body.get("settled") if isinstance(body.get("settled"), bool) else None,
             http_status=None,
-            failure=None if ok else FailureClass.ACTION_REJECTED,
+            failure=None if ok else (classify(body, None) or FailureClass.ACTION_REJECTED),
             idempotency_key=key,
             request_id=req_id,
             world_status=body.get("world_status") if isinstance(body.get("world_status"), str) else None,
